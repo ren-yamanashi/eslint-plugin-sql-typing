@@ -28,15 +28,28 @@
     "access": "public"
   },
   "scripts": {
+    "build": "tsdown",
     "test": "vitest --run",
+    "lint": "eslint --fix",
+    "lint:check": "eslint",
     "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "check": "tsgo --noEmit",
     "docs": "pnpm run --filter=@eslint-plugin-sql-typing/docs"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^24.10.13",
+    "@typescript-eslint/parser": "^8.55.0",
+    "@typescript-eslint/rule-tester": "^8.55.0",
+    "@typescript-eslint/utils": "^8.55.0",
+    "@typescript/native-preview": "7.0.0-dev.20260212.1",
+    "eslint": "^9.39.2",
+    "eslint-plugin-import": "^2.32.0",
     "oxfmt": "^0.32.0",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.55.0",
     "vitest": "^4.0.18"
   },
   "engines": {
