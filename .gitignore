@@ -8,6 +8,9 @@ dist
 .claude/.ai-output
 CLAUDE.md
 
+# Environment
+.env
+
 # Other
 .DS_Store
 *.tgz
