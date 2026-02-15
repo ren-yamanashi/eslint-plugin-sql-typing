@@ -1,0 +1,46 @@
+{
+  "name": "eslint-plugin-sql-typing",
+  "version": "0.1.0",
+  "description": "ESLint plugin for raw sql typing (Auto generate sql return type)",
+  "keywords": [
+    "eslint",
+    "eslint-plugin",
+    "eslint-plugin-sql-typing",
+    "mysql",
+    "sql",
+    "typescript"
+  ],
+  "homepage": "https://github.com/ren-yamanashi/eslint-plugin-sql-typing#readme",
+  "bugs": {
+    "url": "https://github.com/ren-yamanashi/eslint-plugin-sql-typing/issues"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "ren-yamanashi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ren-yamanashi/eslint-plugin-sql-typing.git"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "vitest --run",
+    "fmt": "oxfmt",
+    "docs": "pnpm run --filter=@eslint-plugin-sql-typing/docs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "oxfmt": "^0.32.0",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+  },
+  "packageManager": "pnpm@10.29.3"
+}

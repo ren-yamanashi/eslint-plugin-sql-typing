@@ -1,0 +1,9 @@
+packages:
+  - .
+  - "docs"
+  - "examples"
+engineStrict: true
+minimumReleaseAge: 2880
+onlyBuiltDependencies:
+  - esbuild
+useNodeVersion: 24.13.1

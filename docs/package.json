@@ -1,0 +1,12 @@
+{
+  "name": "@eslint-plugin-sql-typing/docs",
+  "private": true,
+  "scripts": {
+    "dev": "vitepress dev --open",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "2.0.0-alpha.16"
+  }
+}
