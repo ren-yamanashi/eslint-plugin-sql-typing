@@ -1,24 +1,18 @@
+import tsParser from "@typescript-eslint/parser";
 import sqlTyping from "eslint-plugin-sql-typing";
 
 export default [
   {
     files: ["src/**/*.ts"],
+    languageOptions: {
+      parser: tsParser,
+    },
     plugins: {
       "sql-typing": sqlTyping,
     },
     rules: {
-      "sql-typing/check-sql": [
-        "error",
-        {
-          connections: [
-            {
-              driver: "mysql",
-              databaseUrl: "mysql://root:test@localhost:3306/test_db",
-              targets: [{ method: "execute" }, { method: "query" }],
-            },
-          ],
-        },
-      ],
+      // Currently works without options (uses mock schema)
+      "sql-typing/check-sql": "error",
     },
   },
 ];

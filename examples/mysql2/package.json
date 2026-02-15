@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:setup": "docker compose exec mysql mysql -uroot -ptest test_db < schema.sql"
@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@typescript-eslint/parser": "^8.55.0",
     "eslint": "^9.0.0",
     "eslint-plugin-sql-typing": "workspace:*",
     "typescript": "^5.0.0"
