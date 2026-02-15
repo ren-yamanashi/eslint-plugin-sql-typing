@@ -2,5 +2,12 @@ node_modules
 
 # IDE
 .vscode/
+
+# AI
+.claude/.ai-output
+CLAUDE.md
+
+# Other
 .DS_Store
 *.tgz
+*local*
