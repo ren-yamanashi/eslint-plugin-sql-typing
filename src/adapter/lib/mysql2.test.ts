@@ -151,9 +151,10 @@ describe("mysql2 Library Adapter", () => {
     it("should detect missing type annotation", () => {
       // GIVEN
       const callExpr = createMockCallWithSql("pool", "execute", "SELECT id FROM users");
+      const sourceCode = 'pool.execute("SELECT id FROM users")';
 
       // WHEN
-      const typeInfo = adapter.getExistingTypeAnnotation(callExpr);
+      const typeInfo = adapter.getExistingTypeAnnotation(callExpr, sourceCode);
 
       // THEN
       expect(typeInfo).toBeNull();
@@ -161,15 +162,16 @@ describe("mysql2 Library Adapter", () => {
 
     it("should parse existing type annotation", () => {
       // GIVEN
-      const callExpr = createMockCallWithTypeAnnotation(
+      const typeAnnotation = "(RowDataPacket & { id: number })[]";
+      const { callExpr, sourceCode } = createMockCallWithTypeAnnotation(
         "pool",
         "execute",
         "SELECT id FROM users",
-        "(RowDataPacket & { id: number })[]",
+        typeAnnotation,
       );
 
       // WHEN
-      const typeInfo = adapter.getExistingTypeAnnotation(callExpr);
+      const typeInfo = adapter.getExistingTypeAnnotation(callExpr, sourceCode);
 
       // THEN
       expect(typeInfo).not.toBeNull();
@@ -180,15 +182,16 @@ describe("mysql2 Library Adapter", () => {
 
     it("should parse nullable column types", () => {
       // GIVEN
-      const callExpr = createMockCallWithTypeAnnotation(
+      const typeAnnotation = "(RowDataPacket & { email: string | null })[]";
+      const { callExpr, sourceCode } = createMockCallWithTypeAnnotation(
         "pool",
         "execute",
         "SELECT email FROM users",
-        "(RowDataPacket & { email: string | null })[]",
+        typeAnnotation,
       );
 
       // WHEN
-      const typeInfo = adapter.getExistingTypeAnnotation(callExpr);
+      const typeInfo = adapter.getExistingTypeAnnotation(callExpr, sourceCode);
 
       // THEN
       expect(typeInfo?.columns).toEqual({
@@ -198,15 +201,16 @@ describe("mysql2 Library Adapter", () => {
 
     it("should parse ENUM union types", () => {
       // GIVEN
-      const callExpr = createMockCallWithTypeAnnotation(
+      const typeAnnotation = '(RowDataPacket & { status: "pending" | "active" | "inactive" })[]';
+      const { callExpr, sourceCode } = createMockCallWithTypeAnnotation(
         "pool",
         "execute",
         "SELECT status FROM users",
-        '(RowDataPacket & { status: "pending" | "active" | "inactive" })[]',
+        typeAnnotation,
       );
 
       // WHEN
-      const typeInfo = adapter.getExistingTypeAnnotation(callExpr);
+      const typeInfo = adapter.getExistingTypeAnnotation(callExpr, sourceCode);
 
       // THEN
       expect(typeInfo?.columns).toEqual({
@@ -220,15 +224,17 @@ describe("mysql2 Library Adapter", () => {
 
     it("should parse multiple columns", () => {
       // GIVEN
-      const callExpr = createMockCallWithTypeAnnotation(
+      const typeAnnotation =
+        "(RowDataPacket & { id: number; name: string; email: string | null })[]";
+      const { callExpr, sourceCode } = createMockCallWithTypeAnnotation(
         "pool",
         "execute",
         "SELECT id, name, email FROM users",
-        "(RowDataPacket & { id: number; name: string; email: string | null })[]",
+        typeAnnotation,
       );
 
       // WHEN
-      const typeInfo = adapter.getExistingTypeAnnotation(callExpr);
+      const typeInfo = adapter.getExistingTypeAnnotation(callExpr, sourceCode);
 
       // THEN
       expect(typeInfo?.columns).toEqual({
@@ -255,7 +261,7 @@ describe("mysql2 Library Adapter", () => {
 
     it("should generate fix for wrong type annotation", () => {
       // GIVEN
-      const callExpr = createMockCallWithTypeAnnotation(
+      const { callExpr } = createMockCallWithTypeAnnotation(
         "pool",
         "execute",
         "SELECT id FROM users",
@@ -509,9 +515,14 @@ function createMockCallWithTypeAnnotation(
   methodName: string,
   sql: string,
   typeAnnotation: string,
-): TSESTree.CallExpression {
-  // This creates a mock with type parameters like pool.execute<Type>(sql)
-  return {
+): { callExpr: TSESTree.CallExpression; sourceCode: string } {
+  // Build the source code string: pool.execute<Type>("sql")
+  const methodPart = `${objectName}.${methodName}`;
+  const typeStart = methodPart.length + 1; // After '<'
+  const typeEnd = typeStart + typeAnnotation.length;
+  const sourceCode = `${methodPart}<${typeAnnotation}>("${sql}")`;
+
+  const callExpr = {
     type: "CallExpression",
     callee: {
       type: "MemberExpression",
@@ -524,13 +535,15 @@ function createMockCallWithTypeAnnotation(
         name: methodName,
       },
       computed: false,
-      range: [0, 20],
+      range: [0, methodPart.length],
     },
     typeArguments: {
       type: "TSTypeParameterInstantiation",
       params: [
-        // Mock type annotation - actual parsing would be more complex
-        { _typeAnnotationString: typeAnnotation },
+        {
+          type: "TSArrayType",
+          range: [typeStart, typeEnd],
+        },
       ],
     },
     arguments: [
@@ -541,8 +554,10 @@ function createMockCallWithTypeAnnotation(
       },
     ],
     optional: false,
-    range: [0, 50],
+    range: [0, sourceCode.length],
   } as unknown as TSESTree.CallExpression;
+
+  return { callExpr, sourceCode };
 }
 
 function createMockCallWithOptions(

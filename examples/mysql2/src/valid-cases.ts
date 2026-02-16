@@ -154,3 +154,19 @@ export async function validWithOrderBy() {
 
   return rows;
 }
+
+// =============================================================================
+// Case 11: use custom interface
+// =============================================================================
+export async function validWithCustomInterface() {
+  interface User {
+    id: number;
+    name: string;
+    created_at: Date;
+  }
+  const [rows] = await pool.execute<(RowDataPacket & User)[]>(
+    "SELECT id, name, created_at FROM users ORDER BY created_at DESC",
+  );
+
+  return rows;
+}

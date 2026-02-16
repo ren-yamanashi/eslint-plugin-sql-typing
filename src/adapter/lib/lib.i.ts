@@ -42,7 +42,10 @@ export interface ILibraryAdapter {
   /**
    * Get existing type annotation from call expression
    */
-  getExistingTypeAnnotation(callExpr: TSESTree.CallExpression): ParsedTypeAnnotation | null;
+  getExistingTypeAnnotation(
+    callExpr: TSESTree.CallExpression,
+    sourceCode: string,
+  ): ParsedTypeAnnotation | null;
 
   /**
    * Generate fix for type annotation

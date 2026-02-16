@@ -74,7 +74,10 @@ export class MySQL2Adapter implements ILibraryAdapter {
   /**
    * Get existing type annotation from call expression
    */
-  getExistingTypeAnnotation(callExpr: TSESTree.CallExpression): ParsedTypeAnnotation | null {
+  getExistingTypeAnnotation(
+    callExpr: TSESTree.CallExpression,
+    sourceCode: string,
+  ): ParsedTypeAnnotation | null {
     const callExprWithTypeArgs = callExpr as TSESTree.CallExpression & {
       typeArguments?: TSESTree.TSTypeParameterInstantiation;
     };
@@ -89,16 +92,9 @@ export class MySQL2Adapter implements ILibraryAdapter {
       return null;
     }
 
-    // Parse the type annotation string (mock implementation for tests)
-    const mockParam = firstParam as unknown as {
-      _typeAnnotationString?: string;
-    };
-    const typeAnnotationString = mockParam._typeAnnotationString;
-    if (typeAnnotationString) {
-      return this.parseTypeAnnotationString(typeAnnotationString);
-    }
-
-    return null;
+    // Get the source text of the type annotation
+    const typeText = sourceCode.slice(firstParam.range[0], firstParam.range[1]);
+    return this.parseTypeAnnotationString(typeText);
   }
 
   /**
@@ -116,7 +112,10 @@ export class MySQL2Adapter implements ILibraryAdapter {
     const content = match[1];
 
     // Parse each column: "name: type" or "name: type | null"
+    // Remove comments before parsing
     const columnParts = content
+      .replace(/\/\*[\s\S]*?\*\//g, "") // Remove block comments (/* ... */ and /** ... */)
+      .replace(/\/\/[^\n]*/g, "") // Remove line comments (// ...)
       .split(";")
       .map((s) => s.trim())
       .filter(Boolean);
