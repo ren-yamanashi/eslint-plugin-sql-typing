@@ -1,6 +1,17 @@
 node_modules
+dist
 
 # IDE
 .vscode/
+
+# AI
+.claude/.ai-output
+CLAUDE.md
+
+# Environment
+.env
+
+# Other
 .DS_Store
 *.tgz
+*local*
