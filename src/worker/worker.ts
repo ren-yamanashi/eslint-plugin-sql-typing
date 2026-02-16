@@ -1,12 +1,14 @@
 import { runAsWorker } from "synckit";
 
-import type { DatabaseConfig } from "../adapter/db/config.i";
+import type { DatabaseConfig, DatabaseEngine } from "../adapter/db/config.i";
+import type { IDatabaseAdapter } from "../adapter/db/db.i";
 import { MySQLAdapter } from "../adapter/db/mysql";
+import { getDatabaseAdapter } from "../adapter/registry";
 import type { ColumnTypeInfo, ColumnTypeRegistry } from "../types/column.i";
 import type { ColumnMeta, QueryMeta } from "../types/meta.i";
 
 /** MySQL type to TypeScript type mapping */
-const TYPE_MAPPING: Record<string, string> = {
+export const TYPE_MAPPING: Record<string, string> = {
   // Integer types
   TINYINT: "number",
   SMALLINT: "number",
@@ -50,14 +52,17 @@ const TYPE_MAPPING: Record<string, string> = {
 };
 
 /** Cached database adapter */
-let cachedAdapter: MySQLAdapter | null = null;
+let cachedAdapter: IDatabaseAdapter | null = null;
 let cachedConfigHash: string | null = null;
 
 /**
  * Get or create database adapter with connection pooling
  */
-async function getAdapter(config: DatabaseConfig): Promise<MySQLAdapter> {
-  const configHash = JSON.stringify(config);
+async function getAdapter(
+  dbEngine: DatabaseEngine,
+  config: DatabaseConfig,
+): Promise<IDatabaseAdapter> {
+  const configHash = `${dbEngine}:${JSON.stringify(config)}`;
 
   if (cachedAdapter && cachedConfigHash === configHash) {
     return cachedAdapter;
@@ -68,7 +73,7 @@ async function getAdapter(config: DatabaseConfig): Promise<MySQLAdapter> {
     await cachedAdapter.disconnect();
   }
 
-  const adapter = new MySQLAdapter(config);
+  const adapter = getDatabaseAdapter(dbEngine, config);
   await adapter.connect();
 
   cachedAdapter = adapter;
@@ -86,6 +91,7 @@ export type CheckSQLWorkerHandler = typeof getQueryTypes;
 async function getQueryTypes(
   sql: string,
   config: DatabaseConfig,
+  dbEngine: DatabaseEngine = "mysql",
 ): Promise<ColumnTypeRegistry | null> {
   // Skip non-SELECT queries
   if (!MySQLAdapter.isSelectQuery(sql)) {
@@ -93,7 +99,7 @@ async function getQueryTypes(
   }
 
   try {
-    const adapter = await getAdapter(config);
+    const adapter = await getAdapter(dbEngine, config);
     const metadata = await adapter.getQueryMetadata(sql);
     return genColumnTypeRegistry(metadata);
   } catch (error) {
@@ -106,7 +112,7 @@ async function getQueryTypes(
 /**
  * Generate column type registry from query metadata
  */
-function genColumnTypeRegistry(metadata: QueryMeta): ColumnTypeRegistry {
+export function genColumnTypeRegistry(metadata: QueryMeta): ColumnTypeRegistry {
   const result: ColumnTypeRegistry = {};
 
   for (const column of metadata.columns) {
@@ -121,14 +127,14 @@ function genColumnTypeRegistry(metadata: QueryMeta): ColumnTypeRegistry {
 /**
  * Get property name for a column (use alias if present)
  */
-function getPropertyName(column: ColumnMeta): string {
+export function getPropertyName(column: ColumnMeta): string {
   return column.alias ?? column.name;
 }
 
 /**
  * Infer TypeScript type for a single column
  */
-function inferColumnType(column: ColumnMeta): ColumnTypeInfo {
+export function inferColumnType(column: ColumnMeta): ColumnTypeInfo {
   const mysqlType = column.type.toUpperCase();
   const tsType = TYPE_MAPPING[mysqlType] ?? "unknown";
 

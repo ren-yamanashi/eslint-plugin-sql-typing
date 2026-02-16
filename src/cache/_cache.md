@@ -1,4 +1,4 @@
-# cache Directory
+# cache
 
 ## Responsibility
 
@@ -15,15 +15,6 @@ flowchart TD
     Check -->|No| DB[Query database]
     DB --> Store[Store in cache]
     Store --> Return
-```
-
-## File Structure
-
-```
-cache/
-├── overview.md
-├── cache.ts    # Cache implementation
-└── index.ts
 ```
 
 ## Module Details
@@ -46,7 +37,7 @@ class QueryCache {
 
 ### Cache Key Generation
 
-```
+```sh
 key = hash(normalize(SQL) + schemaVersion)
 ```
 
@@ -76,7 +67,7 @@ When the version changes, all cache entries become invalid.
 
 ## Cache File Format
 
-```
+```sh
 .sql-typing-cache/
 ├── v1/                    # schemaVersion
 │   ├── abc123.json        # First 6 characters of hash
