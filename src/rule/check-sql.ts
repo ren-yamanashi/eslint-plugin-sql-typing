@@ -80,7 +80,10 @@ function parseTypeString(typeStr: string): ParsedTypeAnnotation {
   const content = match[1];
 
   // Parse each column: "name: type" or "name: type | null"
+  // Remove comments before parsing
   const columnParts = content
+    .replace(/\/\*[\s\S]*?\*\//g, "") // Remove block comments (/* ... */ and /** ... */)
+    .replace(/\/\/[^\n]*/g, "") // Remove line comments (// ...)
     .split(";")
     .map((s) => s.trim())
     .filter(Boolean);

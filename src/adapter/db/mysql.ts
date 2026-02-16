@@ -104,6 +104,7 @@ const AGGREGATE_FUNCTIONS = new Set([
 interface ParsedColumnInfo {
   alias: string | null;
   isAggregate: boolean;
+  aggregateFunctionName: string | null;
   hasCoalesce: boolean;
 }
 
@@ -200,11 +201,15 @@ export class MySQLAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return columns.map((col: SqlColumn) => ({
-        alias: col.as ?? null,
-        isAggregate: this.isAggregateExpr(col.expr),
-        hasCoalesce: this.hasCoalesceExpr(col.expr),
-      }));
+      return columns.map((col: SqlColumn) => {
+        const aggregateFunctionName = this.getAggregateFunctionName(col.expr);
+        return {
+          alias: col.as ?? null,
+          isAggregate: aggregateFunctionName !== null,
+          aggregateFunctionName,
+          hasCoalesce: this.hasCoalesceExpr(col.expr),
+        };
+      });
     } catch {
       // If parsing fails, return empty array
       return [];
@@ -212,26 +217,32 @@ export class MySQLAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Check if expression is an aggregate function
+   * Get aggregate function name from expression, or null if not an aggregate
    */
-  private isAggregateExpr(expr: unknown): boolean {
-    if (!expr || typeof expr !== "object") return false;
+  private getAggregateFunctionName(expr: unknown): string | null {
+    if (!expr || typeof expr !== "object") return null;
 
     const e = expr as { type?: string; name?: string; args?: unknown };
 
     if (e.type === "aggr_func" && e.name) {
-      return AGGREGATE_FUNCTIONS.has(e.name.toUpperCase());
+      const funcName = e.name.toUpperCase();
+      if (AGGREGATE_FUNCTIONS.has(funcName)) {
+        return funcName;
+      }
     }
 
     // Check nested expressions
     if (e.args) {
       if (Array.isArray(e.args)) {
-        return e.args.some((arg) => this.isAggregateExpr(arg));
+        for (const arg of e.args) {
+          const result = this.getAggregateFunctionName(arg);
+          if (result) return result;
+        }
       }
-      return this.isAggregateExpr(e.args);
+      return this.getAggregateFunctionName(e.args);
     }
 
-    return false;
+    return null;
   }
 
   /**
@@ -306,8 +317,12 @@ export class MySQLAdapter implements IDatabaseAdapter {
     }
 
     // Handle aggregate functions
+    // SUM, AVG, MIN, MAX etc. return NULL for empty groups (COUNT returns 0)
     if (parsedInfo?.isAggregate) {
       metadata.isAggregate = true;
+      if (parsedInfo.aggregateFunctionName !== "COUNT" && !parsedInfo.hasCoalesce) {
+        metadata.nullable = true;
+      }
     }
 
     // mysql2 の prepare statement は ENUM を CHAR (254) として返すため、
