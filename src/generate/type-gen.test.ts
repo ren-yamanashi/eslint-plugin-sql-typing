@@ -1,25 +1,14 @@
-/**
- * Type Generator Unit Tests
- *
- * These tests verify the type generator correctly produces TypeScript
- * type strings from inferred type information.
- */
+import { describe, expect, it } from "vitest";
 
-import { describe, it, expect } from "vitest";
+import type { ColumnTypeRegistry } from "../types/column.i";
 
-import type { InferredTypes } from "../types/inference.js";
-
-import { generateTypeString } from "./type-generator.js";
+import { generateTypeString } from "./type-gen";
 
 describe("Type Generator", () => {
-  // =========================================================================
-  // Basic Type Generation
-  // =========================================================================
-
   describe("Basic Type Generation", () => {
     it("should generate type for single number column", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
       };
 
@@ -32,7 +21,7 @@ describe("Type Generator", () => {
 
     it("should generate type for single string column", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         name: { type: "string", nullable: false },
       };
 
@@ -45,7 +34,7 @@ describe("Type Generator", () => {
 
     it("should generate type for single Date column", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         created_at: { type: "Date", nullable: false },
       };
 
@@ -58,7 +47,7 @@ describe("Type Generator", () => {
 
     it("should generate type for multiple columns", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         name: { type: "string", nullable: false },
         created_at: { type: "Date", nullable: false },
@@ -72,14 +61,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // Nullable Types
-  // =========================================================================
-
   describe("Nullable Types", () => {
     it("should generate type with | null for nullable column", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         email: { type: "string", nullable: true },
       };
 
@@ -92,7 +77,7 @@ describe("Type Generator", () => {
 
     it("should generate mixed nullable and non-nullable", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         email: { type: "string", nullable: true },
         name: { type: "string", nullable: false },
@@ -107,7 +92,7 @@ describe("Type Generator", () => {
 
     it("should generate nullable Date type", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         updated_at: { type: "Date", nullable: true },
       };
 
@@ -119,14 +104,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // ENUM Types
-  // =========================================================================
-
   describe("ENUM Types", () => {
     it("should generate union type for ENUM", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         status: {
           type: "enum",
           nullable: false,
@@ -143,7 +124,7 @@ describe("Type Generator", () => {
 
     it("should generate nullable union type for nullable ENUM", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         status: {
           type: "enum",
           nullable: true,
@@ -160,7 +141,7 @@ describe("Type Generator", () => {
 
     it("should handle ENUM with single value", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         role: {
           type: "enum",
           nullable: false,
@@ -177,7 +158,7 @@ describe("Type Generator", () => {
 
     it("should escape special characters in ENUM values", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         status: {
           type: "enum",
           nullable: false,
@@ -193,14 +174,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // Special Types
-  // =========================================================================
-
   describe("Special Types", () => {
     it("should generate Buffer type", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         data: { type: "Buffer", nullable: false },
       };
 
@@ -213,7 +190,7 @@ describe("Type Generator", () => {
 
     it("should generate unknown type for JSON", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         metadata: { type: "unknown", nullable: true },
       };
 
@@ -225,14 +202,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // mysql2 Format
-  // =========================================================================
-
   describe("mysql2 Format", () => {
     it("should generate RowDataPacket intersection type", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         name: { type: "string", nullable: false },
       };
@@ -246,7 +219,7 @@ describe("Type Generator", () => {
 
     it("should generate RowDataPacket with nullable columns", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         email: { type: "string", nullable: true },
       };
@@ -260,7 +233,7 @@ describe("Type Generator", () => {
 
     it("should generate RowDataPacket with ENUM", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         status: {
           type: "enum",
@@ -279,14 +252,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // nestTables Format
-  // =========================================================================
-
   describe("nestTables Format", () => {
     it("should generate nested object type for nestTables", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         "users.id": { type: "number", nullable: false, table: "users" },
         "users.name": { type: "string", nullable: false, table: "users" },
         "posts.id": { type: "number", nullable: false, table: "posts" },
@@ -307,7 +276,7 @@ describe("Type Generator", () => {
 
     it("should handle nullable columns in nested format", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         "users.id": { type: "number", nullable: false, table: "users" },
         "users.email": { type: "string", nullable: true, table: "users" },
       };
@@ -323,14 +292,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // rowsAsArray Format
-  // =========================================================================
-
   describe("rowsAsArray Format", () => {
     it("should generate tuple type for rowsAsArray", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         name: { type: "string", nullable: false },
       };
@@ -347,7 +312,7 @@ describe("Type Generator", () => {
 
     it("should handle nullable columns in tuple format", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         email: { type: "string", nullable: true },
       };
@@ -364,7 +329,7 @@ describe("Type Generator", () => {
 
     it("should handle ENUM in tuple format", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         status: {
           type: "enum",
@@ -384,14 +349,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // Edge Cases
-  // =========================================================================
-
   describe("Edge Cases", () => {
     it("should handle empty column set", () => {
       // GIVEN
-      const types: InferredTypes = {};
+      const types: ColumnTypeRegistry = {};
 
       // WHEN
       const result = generateTypeString(types);
@@ -402,7 +363,7 @@ describe("Type Generator", () => {
 
     it("should handle column names with special characters", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         "user-id": { type: "number", nullable: false },
         user_name: { type: "string", nullable: false },
       };
@@ -416,7 +377,7 @@ describe("Type Generator", () => {
 
     it("should handle column names that are reserved words", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         class: { type: "string", nullable: false },
         function: { type: "string", nullable: false },
       };
@@ -430,7 +391,7 @@ describe("Type Generator", () => {
 
     it("should preserve column order", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         z: { type: "number", nullable: false },
         a: { type: "string", nullable: false },
         m: { type: "Date", nullable: false },
@@ -444,14 +405,10 @@ describe("Type Generator", () => {
     });
   });
 
-  // =========================================================================
-  // Complex Scenarios
-  // =========================================================================
-
   describe("Complex Scenarios", () => {
     it("should generate type for real-world user query", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         id: { type: "number", nullable: false },
         name: { type: "string", nullable: false },
         email: { type: "string", nullable: true },
@@ -477,7 +434,7 @@ describe("Type Generator", () => {
 
     it("should generate type for COUNT query", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         total: { type: "string", nullable: false },
       };
 
@@ -490,7 +447,7 @@ describe("Type Generator", () => {
 
     it("should generate type for JOIN query", () => {
       // GIVEN
-      const types: InferredTypes = {
+      const types: ColumnTypeRegistry = {
         user_id: { type: "number", nullable: false },
         user_name: { type: "string", nullable: false },
         post_id: { type: "number", nullable: false },

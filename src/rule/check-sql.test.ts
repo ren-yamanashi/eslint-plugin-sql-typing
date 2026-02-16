@@ -1,28 +1,38 @@
-/**
- * ESLint Rule: check-sql Unit Tests
- *
- * These tests verify the check-sql rule correctly:
- * - Detects missing type annotations
- * - Detects wrong type annotations
- * - Handles nullable columns
- * - Handles special MySQL types (ENUM, BIGINT, DECIMAL, etc.)
- * - Auto-fixes type annotations
- */
-
 import { RuleTester } from "@typescript-eslint/rule-tester";
 import { describe } from "vitest";
 
-import { checkSqlRule } from "./check-sql.js";
+import { checkSql } from "./check-sql.js";
+
+// Database configuration for integration tests
+const DB_HOST = process.env["DB_HOST"];
+const DB_PORT = process.env["DB_PORT"] ? parseInt(process.env["DB_PORT"], 10) : 3306;
+const DB_USER = process.env["DB_USER"] ?? "root";
+const DB_PASSWORD = process.env["DB_PASSWORD"] ?? "test";
+const DB_NAME = process.env["DB_NAME"] ?? "test_db";
+
+const databaseConfig = {
+  host: DB_HOST ?? "",
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_NAME,
+};
+
+const describeWithDb = DB_HOST ? describe : describe.skip;
 
 const ruleTester = new RuleTester();
 
 // =============================================================================
-// Valid Cases: Simple SELECT Queries
+// All Tests Combined
 // =============================================================================
 
-describe("check-sql: Valid Simple SELECT", () => {
-  ruleTester.run("check-sql", checkSqlRule, {
+describeWithDb("check-sql", () => {
+  ruleTester.run("check-sql", checkSql, {
     valid: [
+      // =================================================================
+      // Valid Cases: Simple SELECT Queries
+      // =================================================================
+
       // -----------------------------------------------------------------
       // Case: SELECT single column with correct type
       // -----------------------------------------------------------------
@@ -38,6 +48,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             );
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -55,6 +66,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             );
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -72,6 +84,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             >("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -89,6 +102,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             >("SELECT id AS user_id, name AS user_name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -106,6 +120,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             >("SELECT id, name FROM users WHERE id = 1");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -123,6 +138,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             >("SELECT id, name FROM users LIMIT 10");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -140,6 +156,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             >("SELECT id, name FROM users ORDER BY id DESC");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -157,6 +174,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             >("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -174,6 +192,7 @@ describe("check-sql: Valid Simple SELECT", () => {
             >(\`SELECT id, name FROM users\`);
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -195,20 +214,13 @@ describe("check-sql: Valid Simple SELECT", () => {
             \`);
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-    ],
 
-    invalid: [],
-  });
-});
+      // =================================================================
+      // Valid Cases: Nullable Column Handling
+      // =================================================================
 
-// =============================================================================
-// Valid Cases: Nullable Column Handling
-// =============================================================================
-
-describe("check-sql: Valid Nullable Column Handling", () => {
-  ruleTester.run("check-sql", checkSqlRule, {
-    valid: [
       // -----------------------------------------------------------------
       // Case: Nullable VARCHAR column
       // -----------------------------------------------------------------
@@ -225,6 +237,7 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -243,6 +256,7 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, age FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -261,6 +275,7 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, updated_at FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -283,6 +298,7 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, name, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -305,6 +321,7 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, email, age, updated_at FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -327,6 +344,7 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, name, created_at FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -345,6 +363,7 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, content FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -363,22 +382,11 @@ describe("check-sql: Valid Nullable Column Handling", () => {
             >("SELECT id, metadata FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-    ],
 
-    invalid: [],
-  });
-});
-
-// =============================================================================
-// Valid Cases: Special MySQL Types
-// =============================================================================
-
-describe("check-sql: Valid Special MySQL Types", () => {
-  ruleTester.run("check-sql", checkSqlRule, {
-    valid: [
       // =================================================================
-      // ENUM Type
+      // Valid Cases: Special MySQL Types
       // =================================================================
 
       // -----------------------------------------------------------------
@@ -399,6 +407,7 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, status FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -420,11 +429,8 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, name, status FROM users WHERE status = 'active'");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-
-      // =================================================================
-      // BIGINT Type
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: BIGINT as string (outside JS number range)
@@ -442,11 +448,8 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, view_count FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-
-      // =================================================================
-      // DECIMAL Type
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: DECIMAL as string (precision preservation)
@@ -464,11 +467,8 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, balance FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-
-      // =================================================================
-      // DATE/TIMESTAMP Types
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: TIMESTAMP as Date
@@ -485,6 +485,7 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, created_at FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -502,6 +503,7 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, updated_at FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -523,11 +525,8 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, created_at, updated_at FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-
-      // =================================================================
-      // TINYINT (BOOLEAN) Type
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: TINYINT(1) as number (MySQL doesn't have true boolean)
@@ -545,11 +544,8 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, published FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-
-      // =================================================================
-      // JSON Type
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: JSON as unknown
@@ -566,11 +562,8 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, metadata FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-
-      // =================================================================
-      // TEXT Type
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: TEXT as string
@@ -587,6 +580,7 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, body FROM comments");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
 
       // -----------------------------------------------------------------
@@ -604,11 +598,8 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT id, content FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
-
-      // =================================================================
-      // All Types Combined
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: Query with multiple special types
@@ -635,22 +626,15 @@ describe("check-sql: Valid Special MySQL Types", () => {
             >("SELECT * FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
       },
     ],
 
-    invalid: [],
-  });
-});
-
-// =============================================================================
-// Invalid Cases: Missing Type Annotations
-// =============================================================================
-
-describe("check-sql: Invalid - Missing Type Annotations", () => {
-  ruleTester.run("check-sql", checkSqlRule, {
-    valid: [],
-
     invalid: [
+      // =================================================================
+      // Invalid Cases: Missing Type Annotations
+      // =================================================================
+
       // -----------------------------------------------------------------
       // Case: Simple SELECT without type
       // -----------------------------------------------------------------
@@ -671,6 +655,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -701,6 +686,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; status: "pending" | "active" | "inactive" })[]>("SELECT id, status FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -728,6 +714,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; email: string | null; age: number | null })[]>("SELECT id, email, age FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -755,6 +742,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; view_count: string })[]>("SELECT id, view_count FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -782,6 +770,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; balance: string })[]>("SELECT id, balance FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -813,6 +802,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             );
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -844,6 +834,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             );
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -871,6 +862,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.query<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -898,6 +890,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>(\`SELECT id, name FROM users\`);
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -941,6 +934,7 @@ import type { RowDataPacket } from 'mysql2/promise';
           }
         `,
         ],
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -970,9 +964,10 @@ import type { RowDataPacket } from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2/promise';
 
           async function test() {
-            const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string; email: string | null; status: "pending" | "active" | "inactive"; balance: string; created_at: Date; updated_at: Date | null; metadata: unknown | null; age: number | null })[]>("SELECT * FROM users");
+            const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string; email: string | null; age: number | null; balance: string; status: "pending" | "active" | "inactive"; created_at: Date; updated_at: Date | null; metadata: unknown | null })[]>("SELECT * FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
@@ -1008,27 +1003,16 @@ import type { RowDataPacket } from 'mysql2/promise';
             \`);
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingType",
           },
         ],
       },
-    ],
-  });
-});
 
-// =============================================================================
-// Invalid Cases: Wrong Type Annotations
-// =============================================================================
-
-describe("check-sql: Invalid - Wrong Type Annotations", () => {
-  ruleTester.run("check-sql", checkSqlRule, {
-    valid: [],
-
-    invalid: [
       // =================================================================
-      // Wrong Primitive Types
+      // Invalid Cases: Wrong Type Annotations
       // =================================================================
 
       // -----------------------------------------------------------------
@@ -1054,6 +1038,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1089,6 +1074,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1100,10 +1086,6 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           },
         ],
       },
-
-      // =================================================================
-      // Missing Nullable Annotation
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: Nullable column without | null
@@ -1128,6 +1110,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; email: string | null })[]>("SELECT id, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1163,6 +1146,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1174,10 +1158,6 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           },
         ],
       },
-
-      // =================================================================
-      // ENUM Type Errors
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: ENUM as plain string
@@ -1202,6 +1182,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; status: "pending" | "active" | "inactive" })[]>("SELECT id, status FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1237,6 +1218,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; status: "pending" | "active" | "inactive" })[]>("SELECT id, status FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1248,10 +1230,6 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           },
         ],
       },
-
-      // =================================================================
-      // BIGINT/DECIMAL Type Errors
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: BIGINT as number
@@ -1276,6 +1254,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; view_count: string })[]>("SELECT id, view_count FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1311,6 +1290,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; balance: string })[]>("SELECT id, balance FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1322,10 +1302,6 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           },
         ],
       },
-
-      // =================================================================
-      // DATE/TIMESTAMP Type Errors
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: TIMESTAMP as string
@@ -1350,6 +1326,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; created_at: Date })[]>("SELECT id, created_at FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1361,10 +1338,6 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           },
         ],
       },
-
-      // =================================================================
-      // Column Name Errors
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: Missing column in type
@@ -1389,6 +1362,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string; email: string | null })[]>("SELECT id, name, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingColumn",
@@ -1422,6 +1396,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "extraColumn",
@@ -1468,6 +1443,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           }
         `,
         ],
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingColumn",
@@ -1535,6 +1511,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           }
         `,
         ],
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "missingColumn",
@@ -1563,10 +1540,6 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
         ],
       },
 
-      // =================================================================
-      // undefined vs null
-      // =================================================================
-
       // -----------------------------------------------------------------
       // Case: Nullable column with undefined instead of null
       // -----------------------------------------------------------------
@@ -1590,6 +1563,7 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
             const [rows] = await pool.execute<(RowDataPacket & { id: number; email: string | null })[]>("SELECT id, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [
           {
             messageId: "typeMismatch",
@@ -1601,21 +1575,9 @@ describe("check-sql: Invalid - Wrong Type Annotations", () => {
           },
         ],
       },
-    ],
-  });
-});
 
-// =============================================================================
-// Autofix Tests
-// =============================================================================
-
-describe("check-sql: Autofix", () => {
-  ruleTester.run("check-sql", checkSqlRule, {
-    valid: [],
-
-    invalid: [
       // =================================================================
-      // Adding Missing Types
+      // Autofix Tests
       // =================================================================
 
       // -----------------------------------------------------------------
@@ -1638,6 +1600,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "missingType" }],
       },
 
@@ -1661,6 +1624,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; email: string | null })[]>("SELECT id, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "missingType" }],
       },
 
@@ -1684,6 +1648,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; status: "pending" | "active" | "inactive" })[]>("SELECT id, status FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "missingType" }],
       },
 
@@ -1707,6 +1672,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; view_count: string })[]>("SELECT id, view_count FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "missingType" }],
       },
 
@@ -1730,12 +1696,9 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { user_id: number; user_name: string })[]>("SELECT id AS user_id, name AS user_name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "missingType" }],
       },
-
-      // =================================================================
-      // Correcting Wrong Types
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: Fix wrong primitive type
@@ -1760,6 +1723,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "typeMismatch" }],
       },
 
@@ -1786,6 +1750,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; email: string | null })[]>("SELECT id, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "typeMismatch" }],
       },
 
@@ -1812,6 +1777,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; status: "pending" | "active" | "inactive" })[]>("SELECT id, status FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "typeMismatch" }],
       },
 
@@ -1838,6 +1804,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; view_count: string })[]>("SELECT id, view_count FROM posts");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "typeMismatch" }],
       },
 
@@ -1864,6 +1831,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string; email: string | null })[]>("SELECT id, name, email FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "missingColumn" }],
       },
 
@@ -1890,12 +1858,9 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "extraColumn" }],
       },
-
-      // =================================================================
-      // Import Handling
-      // =================================================================
 
       // -----------------------------------------------------------------
       // Case: Don't duplicate existing import
@@ -1918,6 +1883,7 @@ import type { RowDataPacket } from 'mysql2/promise';
             const [rows] = await pool.execute<(RowDataPacket & { id: number; name: string })[]>("SELECT id, name FROM users");
           }
         `,
+        options: [{ database: databaseConfig }],
         errors: [{ messageId: "missingType" }],
       },
     ],

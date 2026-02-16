@@ -1,21 +1,11 @@
-/**
- * Cache System Unit Tests
- *
- * These tests verify the cache system correctly:
- * - Stores and retrieves query metadata
- * - Uses hash(SQL + schemaVersion) as cache key
- * - Invalidates cache when schema version changes
- * - Persists to file system
- */
-
-import { existsSync, rmSync, mkdirSync, readdirSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "fs";
 import { join } from "path";
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { QueryMetadata } from "../types/metadata.js";
+import type { QueryMeta } from "../types/meta.i";
 
-import { QueryCache } from "./cache.js";
+import { QueryCache } from "./cache";
 
 const TEST_CACHE_DIR = join(import.meta.dirname, ".test-cache");
 
@@ -39,18 +29,26 @@ describe("Query Cache", () => {
     }
   });
 
-  // =========================================================================
-  // Basic Operations
-  // =========================================================================
-
   describe("Basic Operations", () => {
     it("should store and retrieve metadata", () => {
       // GIVEN
       const sql = "SELECT id, name FROM users";
-      const metadata: QueryMetadata = {
+      const metadata: QueryMeta = {
         columns: [
-          { name: "id", table: "users", type: "INT", typeCode: 3, nullable: false },
-          { name: "name", table: "users", type: "VARCHAR", typeCode: 253, nullable: false },
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+          {
+            name: "name",
+            table: "users",
+            type: "VARCHAR",
+            typeCode: 253,
+            nullable: false,
+          },
         ],
       };
 
@@ -76,11 +74,27 @@ describe("Query Cache", () => {
     it("should overwrite existing entry", () => {
       // GIVEN
       const sql = "SELECT id FROM users";
-      const metadata1: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata1: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
-      const metadata2: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "BIGINT", typeCode: 8, nullable: false }],
+      const metadata2: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "BIGINT",
+            typeCode: 8,
+            nullable: false,
+          },
+        ],
       };
 
       // WHEN
@@ -92,10 +106,6 @@ describe("Query Cache", () => {
       expect(retrieved).toEqual(metadata2);
     });
   });
-
-  // =========================================================================
-  // Cache Key Generation
-  // =========================================================================
 
   describe("Cache Key Generation", () => {
     it("should generate same key for same SQL", () => {
@@ -167,21 +177,28 @@ describe("Query Cache", () => {
     });
   });
 
-  // =========================================================================
-  // Schema Version Handling
-  // =========================================================================
-
   describe("Schema Version Handling", () => {
     it("should invalidate cache when schema version changes", () => {
       // GIVEN
       const sql = "SELECT id FROM users";
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
       cache.set(sql, metadata);
 
       // WHEN
-      const cache2 = new QueryCache({ cacheDir: TEST_CACHE_DIR, schemaVersion: "v2" });
+      const cache2 = new QueryCache({
+        cacheDir: TEST_CACHE_DIR,
+        schemaVersion: "v2",
+      });
       const retrieved = cache2.get(sql);
 
       // THEN
@@ -191,13 +208,24 @@ describe("Query Cache", () => {
     it("should retrieve cache with same schema version", () => {
       // GIVEN
       const sql = "SELECT id FROM users";
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
       cache.set(sql, metadata);
 
       // WHEN
-      const cache2 = new QueryCache({ cacheDir: TEST_CACHE_DIR, schemaVersion: "v1" });
+      const cache2 = new QueryCache({
+        cacheDir: TEST_CACHE_DIR,
+        schemaVersion: "v1",
+      });
       const retrieved = cache2.get(sql);
 
       // THEN
@@ -205,16 +233,20 @@ describe("Query Cache", () => {
     });
   });
 
-  // =========================================================================
-  // File Persistence
-  // =========================================================================
-
   describe("File Persistence", () => {
     it("should persist cache to file system", () => {
       // GIVEN
       const sql = "SELECT id FROM users";
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
 
       // WHEN
@@ -228,13 +260,24 @@ describe("Query Cache", () => {
     it("should load cache from file system on initialization", () => {
       // GIVEN
       const sql = "SELECT id FROM users";
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
       cache.set(sql, metadata);
 
       // WHEN
-      const cache2 = new QueryCache({ cacheDir: TEST_CACHE_DIR, schemaVersion: "v1" });
+      const cache2 = new QueryCache({
+        cacheDir: TEST_CACHE_DIR,
+        schemaVersion: "v1",
+      });
       const retrieved = cache2.get(sql);
 
       // THEN
@@ -242,17 +285,21 @@ describe("Query Cache", () => {
     });
   });
 
-  // =========================================================================
-  // Cache Invalidation
-  // =========================================================================
-
   describe("Cache Invalidation", () => {
     it("should clear all cache entries", () => {
       // GIVEN
       const sql1 = "SELECT id FROM users";
       const sql2 = "SELECT name FROM users";
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
       cache.set(sql1, metadata);
       cache.set(sql2, metadata);
@@ -269,8 +316,16 @@ describe("Query Cache", () => {
       // GIVEN
       const sql1 = "SELECT id FROM users";
       const sql2 = "SELECT name FROM users";
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
       cache.set(sql1, metadata);
       cache.set(sql2, metadata);
@@ -284,15 +339,11 @@ describe("Query Cache", () => {
     });
   });
 
-  // =========================================================================
-  // Complex Metadata
-  // =========================================================================
-
   describe("Complex Metadata", () => {
     it("should store metadata with ENUM values", () => {
       // GIVEN
       const sql = "SELECT status FROM users";
-      const metadata: QueryMetadata = {
+      const metadata: QueryMeta = {
         columns: [
           {
             name: "status",
@@ -317,11 +368,29 @@ describe("Query Cache", () => {
     it("should store metadata with multiple columns", () => {
       // GIVEN
       const sql = "SELECT id, name, email, status, created_at FROM users";
-      const metadata: QueryMetadata = {
+      const metadata: QueryMeta = {
         columns: [
-          { name: "id", table: "users", type: "INT", typeCode: 3, nullable: false },
-          { name: "name", table: "users", type: "VARCHAR", typeCode: 253, nullable: false },
-          { name: "email", table: "users", type: "VARCHAR", typeCode: 253, nullable: true },
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+          {
+            name: "name",
+            table: "users",
+            type: "VARCHAR",
+            typeCode: 253,
+            nullable: false,
+          },
+          {
+            name: "email",
+            table: "users",
+            type: "VARCHAR",
+            typeCode: 253,
+            nullable: true,
+          },
           {
             name: "status",
             table: "users",
@@ -330,7 +399,13 @@ describe("Query Cache", () => {
             nullable: false,
             enumValues: ["pending", "active", "inactive"],
           },
-          { name: "created_at", table: "users", type: "TIMESTAMP", typeCode: 7, nullable: false },
+          {
+            name: "created_at",
+            table: "users",
+            type: "TIMESTAMP",
+            typeCode: 7,
+            nullable: false,
+          },
         ],
       };
 
@@ -345,7 +420,7 @@ describe("Query Cache", () => {
     it("should store metadata with aliases", () => {
       // GIVEN
       const sql = "SELECT id AS user_id, name AS user_name FROM users";
-      const metadata: QueryMetadata = {
+      const metadata: QueryMeta = {
         columns: [
           {
             name: "id",
@@ -378,7 +453,7 @@ describe("Query Cache", () => {
     it("should store metadata with aggregate flag", () => {
       // GIVEN
       const sql = "SELECT COUNT(*) AS total FROM users";
-      const metadata: QueryMetadata = {
+      const metadata: QueryMeta = {
         columns: [
           {
             name: "COUNT(*)",
@@ -402,10 +477,6 @@ describe("Query Cache", () => {
     });
   });
 
-  // =========================================================================
-  // Error Handling
-  // =========================================================================
-
   describe("Error Handling", () => {
     it("should handle corrupted cache file gracefully", () => {
       // GIVEN
@@ -419,8 +490,16 @@ describe("Query Cache", () => {
       // GIVEN
       rmSync(TEST_CACHE_DIR, { recursive: true });
       const sql = "SELECT id FROM users";
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
 
       // WHEN
@@ -431,15 +510,19 @@ describe("Query Cache", () => {
     });
   });
 
-  // =========================================================================
-  // Performance
-  // =========================================================================
-
   describe("Performance", () => {
     it("should handle many entries efficiently", () => {
       // GIVEN
-      const metadata: QueryMetadata = {
-        columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+      const metadata: QueryMeta = {
+        columns: [
+          {
+            name: "id",
+            table: "users",
+            type: "INT",
+            typeCode: 3,
+            nullable: false,
+          },
+        ],
       };
 
       // WHEN
@@ -462,10 +545,6 @@ describe("Query Cache", () => {
   });
 });
 
-// =========================================================================
-// In-Memory Cache Tests
-// =========================================================================
-
 describe("In-Memory Cache", () => {
   it("should provide in-memory only mode", () => {
     // GIVEN
@@ -486,8 +565,16 @@ describe("In-Memory Cache", () => {
       cacheDir: TEST_CACHE_DIR,
     });
     const sql = "SELECT id FROM users";
-    const metadata: QueryMetadata = {
-      columns: [{ name: "id", table: "users", type: "INT", typeCode: 3, nullable: false }],
+    const metadata: QueryMeta = {
+      columns: [
+        {
+          name: "id",
+          table: "users",
+          type: "INT",
+          typeCode: 3,
+          nullable: false,
+        },
+      ],
     };
 
     // WHEN

@@ -1,4 +1,6 @@
-import { Parser } from "node-sql-parser";
+import sqlParser from "node-sql-parser";
+
+const { Parser } = sqlParser;
 
 /** Aggregate function names */
 const AGGREGATE_FUNCTIONS = new Set([

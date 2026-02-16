@@ -11,8 +11,18 @@ export default [
       "sql-typing": sqlTyping,
     },
     rules: {
-      // Currently works without options (uses mock schema)
-      "sql-typing/check-sql": "error",
+      "sql-typing/check-sql": [
+        "error",
+        {
+          database: {
+            host: "localhost",
+            port: 3306,
+            user: "root",
+            password: "test",
+            database: "test_db",
+          },
+        },
+      ],
     },
   },
 ];

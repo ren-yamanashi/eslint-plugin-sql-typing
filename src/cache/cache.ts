@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
-import type { QueryMetadata } from "../types/metadata.js";
+import type { QueryMeta } from "../types/meta.i";
 
 /** Cache configuration options */
 export interface CacheOptions {
@@ -16,7 +16,7 @@ export interface CacheOptions {
 
 /** Cache entry structure */
 interface CacheEntry {
-  metadata: QueryMetadata;
+  metadata: QueryMeta;
   schemaVersion: string;
 }
 
@@ -46,7 +46,7 @@ export class QueryCache {
   /**
    * Get cached metadata for a SQL query
    */
-  get(sql: string): QueryMetadata | null {
+  get(sql: string): QueryMeta | null {
     const key = this.generateKey(sql);
     const entry = this.memoryCache.get(key);
 
@@ -66,7 +66,7 @@ export class QueryCache {
   /**
    * Store metadata in cache
    */
-  set(sql: string, metadata: QueryMetadata): void {
+  set(sql: string, metadata: QueryMeta): void {
     const key = this.generateKey(sql);
     const entry: CacheEntry = {
       metadata,

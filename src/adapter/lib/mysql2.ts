@@ -1,8 +1,8 @@
 import { AST_NODE_TYPES, type TSESTree } from "@typescript-eslint/utils";
 
-import type { TypeInfo } from "../types/inference.js";
+import type { ColumnTypeInfo, ColumnTypeRegistry } from "../../types/column.i";
 
-import type { FixInfo, ILibraryAdapter, ParsedTypeAnnotation, QueryOptions } from "./interfaces.js";
+import type { FixInfo, ILibraryAdapter, ParsedTypeAnnotation, QueryOptions } from "./lib.i";
 
 /** Target method names for mysql2 */
 const TARGET_METHODS = new Set(["execute", "query"]);
@@ -90,7 +90,9 @@ export class MySQL2Adapter implements ILibraryAdapter {
     }
 
     // Parse the type annotation string (mock implementation for tests)
-    const mockParam = firstParam as unknown as { _typeAnnotationString?: string };
+    const mockParam = firstParam as unknown as {
+      _typeAnnotationString?: string;
+    };
     const typeAnnotationString = mockParam._typeAnnotationString;
     if (typeAnnotationString) {
       return this.parseTypeAnnotationString(typeAnnotationString);
@@ -103,7 +105,7 @@ export class MySQL2Adapter implements ILibraryAdapter {
    * Parse type annotation string to extract column types
    */
   private parseTypeAnnotationString(typeStr: string): ParsedTypeAnnotation {
-    const columns: Record<string, TypeInfo> = {};
+    const columns: ColumnTypeRegistry = {};
 
     // Extract content between { and }
     const match = /\{\s*([^}]+)\s*\}/.exec(typeStr);
@@ -136,7 +138,7 @@ export class MySQL2Adapter implements ILibraryAdapter {
   /**
    * Parse a single type expression
    */
-  private parseTypeExpression(typeExpr: string): TypeInfo {
+  private parseTypeExpression(typeExpr: string): ColumnTypeInfo {
     const nullable = typeExpr.includes("| null");
     const cleanExpr = typeExpr.replace(/\s*\|\s*null\s*$/, "").trim();
 

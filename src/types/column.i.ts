@@ -1,7 +1,7 @@
 /**
  * Inferred type information
  */
-export interface TypeInfo {
+export interface ColumnTypeInfo {
   /** TypeScript type (number, string, Date, etc.) */
   type: string;
   /** Whether NULL is allowed */
@@ -15,4 +15,4 @@ export interface TypeInfo {
 /**
  * Map of column names to type information
  */
-export type InferredTypes = Record<string, TypeInfo>;
+export type ColumnTypeRegistry = Record<string, ColumnTypeInfo>;

@@ -1,26 +1,12 @@
 import type { TSESTree } from "@typescript-eslint/utils";
 
-import type { QueryMetadata } from "../types/index.js";
-import type { TypeInfo } from "../types/inference.js";
+import type { ColumnTypeRegistry } from "../../types/column.i";
 
 /**
- * Database adapter interface for fetching query metadata
+ * Parsed type annotation
  */
-export interface IDatabaseAdapter {
-  /**
-   * Establish connection to the database
-   */
-  connect(): Promise<void>;
-
-  /**
-   * Close the database connection
-   */
-  disconnect(): Promise<void>;
-
-  /**
-   * Get column metadata for a SQL query using prepared statement
-   */
-  getQueryMetadata(sql: string): Promise<QueryMetadata>;
+export interface ParsedTypeAnnotation {
+  columns: ColumnTypeRegistry;
 }
 
 /**
@@ -37,13 +23,6 @@ export interface QueryOptions {
 export interface FixInfo {
   range: [number, number];
   text: string;
-}
-
-/**
- * Parsed type annotation
- */
-export interface ParsedTypeAnnotation {
-  columns: Record<string, TypeInfo>;
 }
 
 /**

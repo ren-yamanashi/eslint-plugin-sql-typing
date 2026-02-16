@@ -1,24 +1,10 @@
-/**
- * mysql2 Library Adapter Unit Tests
- *
- * These tests verify the mysql2 library adapter correctly:
- * - Detects mysql2 method calls (execute, query)
- * - Extracts SQL strings from AST
- * - Parses existing type annotations
- * - Generates correct type annotation fixes
- */
-
 import type { TSESTree } from "@typescript-eslint/utils";
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { MySQL2Adapter } from "./mysql2-library-adapter.js";
+import { MySQL2Adapter } from "./mysql2";
 
 describe("mysql2 Library Adapter", () => {
   const adapter = new MySQL2Adapter();
-
-  // =========================================================================
-  // Method Detection
-  // =========================================================================
 
   describe("Method Detection", () => {
     it("should detect pool.execute call", () => {
@@ -87,10 +73,6 @@ describe("mysql2 Library Adapter", () => {
       expect(result).toBe(false);
     });
   });
-
-  // =========================================================================
-  // SQL Extraction
-  // =========================================================================
 
   describe("SQL Extraction", () => {
     it("should extract SQL from string literal", () => {
@@ -164,10 +146,6 @@ describe("mysql2 Library Adapter", () => {
       expect(sql).toContain("FROM users");
     });
   });
-
-  // =========================================================================
-  // Type Annotation Parsing
-  // =========================================================================
 
   describe("Type Annotation Parsing", () => {
     it("should detect missing type annotation", () => {
@@ -261,10 +239,6 @@ describe("mysql2 Library Adapter", () => {
     });
   });
 
-  // =========================================================================
-  // Fix Generation
-  // =========================================================================
-
   describe("Fix Generation", () => {
     it("should generate fix for missing type annotation", () => {
       // GIVEN
@@ -297,10 +271,6 @@ describe("mysql2 Library Adapter", () => {
       expect(fix.text).toBe(`<${expectedType}>`);
     });
   });
-
-  // =========================================================================
-  // Options Detection
-  // =========================================================================
 
   describe("Options Detection", () => {
     it("should detect nestTables option", () => {
@@ -342,10 +312,6 @@ describe("mysql2 Library Adapter", () => {
     });
   });
 
-  // =========================================================================
-  // Import Detection
-  // =========================================================================
-
   describe("Import Detection", () => {
     it("should check if RowDataPacket import exists", () => {
       // GIVEN
@@ -370,10 +336,6 @@ describe("mysql2 Library Adapter", () => {
     });
   });
 });
-
-// =========================================================================
-// Mock Helpers
-// =========================================================================
 
 function createMockCallExpression(objectName: string, methodName: string): TSESTree.CallExpression {
   return {

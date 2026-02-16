@@ -1,13 +1,4 @@
-# rules Directory
-
-## Responsibility
-
-Provide ESLint rule implementations.
-Traverse AST to validate and auto-fix type annotations for SQL queries.
-
-## Rule List
-
-Currently only a single rule: `check-sql`.
+# check-sql Rule Documentation
 
 ## Processing Flow
 
@@ -23,15 +14,6 @@ flowchart TD
     Compare --> Report{Match?}
     Report -->|No| Error[Report error + Fix]
     Report -->|Yes| Pass[OK]
-```
-
-## File Structure
-
-```
-rules/
-├── overview.md
-├── check-sql.ts    # Main rule
-└── index.ts
 ```
 
 ## check-sql Rule
@@ -113,10 +95,3 @@ When `RowDataPacket` import is missing, it's automatically added:
 // Added import
 import type { RowDataPacket } from "mysql2/promise";
 ```
-
-## Design Principles
-
-- Single responsibility: 1 rule per file
-- Minimize side effects: DB access via cache
-- Fix reliability: Generate correct types reliably
-- CI support: Control behavior with `process.env.CI`

@@ -1,7 +1,7 @@
 /**
  * Column metadata retrieved from MySQL
  */
-export interface ColumnMetadata {
+export interface ColumnMeta {
   /** Column name */
   name: string;
   /** Alias (name specified with AS) */
@@ -23,6 +23,6 @@ export interface ColumnMetadata {
 /**
  * Query metadata
  */
-export interface QueryMetadata {
-  columns: ColumnMetadata[];
+export interface QueryMeta {
+  columns: ColumnMeta[];
 }

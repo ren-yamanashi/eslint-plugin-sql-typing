@@ -1,19 +1,8 @@
-/**
- * SQL Parser Unit Tests
- *
- * These tests verify the SQL parser correctly extracts column information
- * from various SQL query patterns.
- */
+import { describe, expect, it } from "vitest";
 
-import { describe, it, expect } from "vitest";
-
-import { parseSql } from "./sql-parser.js";
+import { parseSql } from "./parser";
 
 describe("SQL Parser", () => {
-  // =========================================================================
-  // Simple SELECT Queries
-  // =========================================================================
-
   describe("Simple SELECT", () => {
     it("should parse single column SELECT", () => {
       // GIVEN
@@ -64,10 +53,6 @@ describe("SQL Parser", () => {
       });
     });
   });
-
-  // =========================================================================
-  // Column Aliases
-  // =========================================================================
 
   describe("Column Aliases", () => {
     it("should parse column with AS alias", () => {
@@ -123,10 +108,6 @@ describe("SQL Parser", () => {
     });
   });
 
-  // =========================================================================
-  // Table References
-  // =========================================================================
-
   describe("Table References", () => {
     it("should parse table with alias", () => {
       // GIVEN
@@ -164,10 +145,6 @@ describe("SQL Parser", () => {
       });
     });
   });
-
-  // =========================================================================
-  // JOIN Queries
-  // =========================================================================
 
   describe("JOIN Queries", () => {
     it("should parse INNER JOIN", () => {
@@ -336,10 +313,6 @@ describe("SQL Parser", () => {
     });
   });
 
-  // =========================================================================
-  // Aggregate Functions
-  // =========================================================================
-
   describe("Aggregate Functions", () => {
     it("should parse COUNT(*)", () => {
       // GIVEN
@@ -412,10 +385,6 @@ describe("SQL Parser", () => {
       });
     });
   });
-
-  // =========================================================================
-  // Edge Cases
-  // =========================================================================
 
   describe("Edge Cases", () => {
     it("should handle case-insensitive keywords", () => {

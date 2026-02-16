@@ -8,17 +8,17 @@
  * They will be skipped if DB_HOST environment variable is not set.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { DatabaseConfig } from "../types/config.js";
-import type { ColumnMetadata } from "../types/metadata.js";
+import type { ColumnMeta } from "../../types/meta.i";
 
-import { MySQLAdapter } from "./mysql-adapter.js";
+import type { DatabaseConfig } from "./config.i";
+import { MySQLAdapter } from "./mysql";
 
 /**
  * Helper to get column at index with type safety
  */
-function getColumn(columns: ColumnMetadata[], index: number): ColumnMetadata {
+function getColumn(columns: ColumnMeta[], index: number): ColumnMeta {
   const column = columns[index];
   if (!column) {
     throw new Error("Column at index " + String(index) + " not found");

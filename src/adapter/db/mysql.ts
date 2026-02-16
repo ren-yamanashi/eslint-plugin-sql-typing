@@ -1,9 +1,12 @@
 import mysql from "mysql2/promise";
-import { Parser } from "node-sql-parser";
+import parser from "node-sql-parser";
 
-import type { DatabaseConfig, QueryMetadata, ColumnMetadata } from "../types/index.js";
+import type { ColumnMeta, QueryMeta } from "../../types/meta.i";
 
-import type { IDatabaseAdapter } from "./interfaces.js";
+import type { DatabaseConfig } from "./config.i";
+import type { IDatabaseAdapter } from "./db.i";
+
+const { Parser } = parser;
 
 /** Type definitions for node-sql-parser AST */
 interface SqlColumn {
@@ -74,6 +77,9 @@ const TYPE_MAP: Record<number, string> = {
 /** NOT_NULL flag in MySQL field flags */
 const NOT_NULL_FLAG = 0x01;
 
+/** Binary charset number (used to distinguish BLOB from TEXT) */
+const BINARY_CHARSET = 63;
+
 /** Aggregate function names */
 const AGGREGATE_FUNCTIONS = new Set([
   "COUNT",
@@ -107,7 +113,7 @@ interface ParsedColumnInfo {
 export class MySQLAdapter implements IDatabaseAdapter {
   private pool: mysql.Pool | null = null;
   private config: DatabaseConfig;
-  private parser: Parser;
+  private parser: InstanceType<typeof Parser>;
 
   /**
    * Create a new MySQL adapter instance
@@ -150,7 +156,7 @@ export class MySQLAdapter implements IDatabaseAdapter {
   /**
    * Get column metadata for a SQL query using prepared statement
    */
-  async getQueryMetadata(sql: string): Promise<QueryMetadata> {
+  async getQueryMetadata(sql: string): Promise<QueryMeta> {
     if (!this.pool) {
       throw new Error("Not connected to database");
     }
@@ -165,7 +171,7 @@ export class MySQLAdapter implements IDatabaseAdapter {
       const fields = (prepared as unknown as { statement: { columns: mysql.FieldPacket[] } })
         .statement.columns;
 
-      const columns: ColumnMetadata[] = await Promise.all(
+      const columns: ColumnMeta[] = await Promise.all(
         fields.map((field, index) => this.mapColumn(field, connection, parsedColumns[index])),
       );
 
@@ -261,7 +267,7 @@ export class MySQLAdapter implements IDatabaseAdapter {
     field: mysql.FieldPacket,
     connection: mysql.PoolConnection,
     parsedInfo?: ParsedColumnInfo,
-  ): Promise<ColumnMetadata> {
+  ): Promise<ColumnMeta> {
     const typeCode = field.columnType ?? 0;
     const typeName = this.getTypeName(typeCode);
 
@@ -274,10 +280,20 @@ export class MySQLAdapter implements IDatabaseAdapter {
       nullable = false;
     }
 
-    const metadata: ColumnMetadata = {
+    // Distinguish TEXT from BLOB using charset
+    // BLOB uses binary charset (63), TEXT uses non-binary charset
+    let finalTypeName = typeName;
+    if (typeCode === TYPE_CODE.BLOB) {
+      const charset = (field as unknown as { characterSet?: number }).characterSet ?? 0;
+      if (charset !== BINARY_CHARSET) {
+        finalTypeName = "TEXT";
+      }
+    }
+
+    const metadata: ColumnMeta = {
       name: field.orgName || field.name,
       table: field.table || null,
-      type: typeName,
+      type: finalTypeName,
       typeCode,
       nullable,
     };
@@ -294,8 +310,19 @@ export class MySQLAdapter implements IDatabaseAdapter {
       metadata.isAggregate = true;
     }
 
-    // Fetch ENUM values
-    if (typeCode === TYPE_CODE.ENUM && field.table && field.orgName) {
+    // mysql2 の prepare statement は ENUM を CHAR (254) として返すため、
+    // INFORMATION_SCHEMA を確認して実際の型を取得する
+    if (typeCode === TYPE_CODE.CHAR && field.table && field.orgName) {
+      const enumValues = await this.getEnumValues(field.table, field.orgName, connection);
+      if (enumValues.length > 0) {
+        metadata.type = "ENUM";
+        metadata.typeCode = TYPE_CODE.ENUM;
+        metadata.enumValues = enumValues;
+      }
+    }
+
+    // Fetch ENUM values (typeCode が直接 ENUM の場合)
+    if (typeCode === TYPE_CODE.ENUM && field.table && field.orgName && !metadata.enumValues) {
       metadata.enumValues = await this.getEnumValues(field.table, field.orgName, connection);
     }
 

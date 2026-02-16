@@ -1,4 +1,4 @@
-import type { InferredTypes, TypeInfo } from "../types/inference.js";
+import type { ColumnTypeInfo, ColumnTypeRegistry } from "../types/column.i";
 
 /** Options for type string generation */
 export interface GenerateOptions {
@@ -13,7 +13,10 @@ export interface GenerateOptions {
 /**
  * Generate TypeScript type string from inferred types
  */
-export function generateTypeString(types: InferredTypes, options: GenerateOptions = {}): string {
+export function generateTypeString(
+  types: ColumnTypeRegistry,
+  options: GenerateOptions = {},
+): string {
   const { format = "plain", nestTables = false, rowsAsArray = false } = options;
 
   // Handle rowsAsArray format (tuple)
@@ -40,7 +43,7 @@ export function generateTypeString(types: InferredTypes, options: GenerateOption
 /**
  * Generate object type string
  */
-function generateObjectType(types: InferredTypes): string {
+function generateObjectType(types: ColumnTypeRegistry): string {
   const entries = Object.entries(types);
 
   if (entries.length === 0) {
@@ -59,7 +62,7 @@ function generateObjectType(types: InferredTypes): string {
 /**
  * Generate tuple type string for rowsAsArray
  */
-function generateTupleType(types: InferredTypes): string {
+function generateTupleType(types: ColumnTypeRegistry): string {
   const entries = Object.entries(types);
   const typeStrings = entries.map(([, typeInfo]) => formatTypeInfo(typeInfo));
   return `[${typeStrings.join(", ")}][]`;
@@ -68,9 +71,9 @@ function generateTupleType(types: InferredTypes): string {
 /**
  * Generate nested object type for nestTables
  */
-function generateNestedType(types: InferredTypes): string {
+function generateNestedType(types: ColumnTypeRegistry): string {
   // Group columns by table
-  const tableGroups: Record<string, Record<string, TypeInfo>> = {};
+  const tableGroups: Record<string, Record<string, ColumnTypeInfo>> = {};
 
   for (const [fullName, typeInfo] of Object.entries(types)) {
     const tableName = typeInfo.table ?? extractTableFromName(fullName);
@@ -121,7 +124,7 @@ function formatPropertyName(name: string): string {
 /**
  * Format type info to TypeScript type string
  */
-function formatTypeInfo(typeInfo: TypeInfo): string {
+function formatTypeInfo(typeInfo: ColumnTypeInfo): string {
   let typeString: string;
 
   if (typeInfo.type === "enum" && typeInfo.enumValues) {

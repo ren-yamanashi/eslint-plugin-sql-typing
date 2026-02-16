@@ -1,13 +1,12 @@
 {
   "$schema": "https://www.schemastore.org/tsconfig",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "./dist",
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
-    "target": "esnext",
-    "lib": ["esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2024",
+    "lib": ["ES2024"],
     "types": ["node"],
 
     // Other Outputs
@@ -35,6 +34,6 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": ["src", "scripts", "*.config.ts", "eslint.config.js"],
+  "include": ["src", "*.config.ts", "eslint.config.js"],
   "exclude": ["dist", "node_modules"]
 }

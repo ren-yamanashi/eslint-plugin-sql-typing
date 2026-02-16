@@ -1,196 +1,52 @@
 import { AST_NODE_TYPES, ESLintUtils, type TSESTree } from "@typescript-eslint/utils";
 
-import type { TypeInfo } from "../types/inference.js";
+import type { DatabaseConfig } from "../adapter/db/config.i";
+import { memoize } from "../cache/memoize";
+import type { ColumnTypeInfo, ColumnTypeRegistry } from "../types/column.i";
+
+import { workers } from "./private/worker";
+
+// =============================================================================
+// Memoized Query Type Fetching
+// =============================================================================
+
+/**
+ * Generate cache key for SQL query and database config
+ */
+function getCacheKey(sql: string, config: DatabaseConfig): string {
+  return `sql:${sql}:${JSON.stringify(config)}`;
+}
+
+/**
+ * Get inferred types for SQL query with memoization
+ */
+function getInferredTypes(sql: string, config: DatabaseConfig): ColumnTypeRegistry | null {
+  return memoize({
+    key: getCacheKey(sql, config),
+    value: () => workers.checkSql(sql, config),
+  });
+}
+
+// =============================================================================
+// Types
+// =============================================================================
 
 /** Rule options */
-type Options = [];
+type Options = [
+  {
+    database?: DatabaseConfig;
+  }?,
+];
 
-// =============================================================================
-// Mock Schema (for testing - in production, this would come from DB/config)
-// =============================================================================
-
-interface ColumnSchema {
-  type: string;
-  nullable: boolean;
-  enumValues?: string[];
-}
-
-interface TableSchema {
-  [columnName: string]: ColumnSchema;
-}
-
-interface DatabaseSchema {
-  [tableName: string]: TableSchema;
-}
-
-/**
- * Mock database schema for testing
- */
-const MOCK_SCHEMA: DatabaseSchema = {
-  users: {
-    id: { type: "number", nullable: false },
-    name: { type: "string", nullable: false },
-    email: { type: "string", nullable: true },
-    status: {
-      type: "enum",
-      nullable: false,
-      enumValues: ["pending", "active", "inactive"],
-    },
-    balance: { type: "string", nullable: false }, // DECIMAL
-    created_at: { type: "Date", nullable: false },
-    updated_at: { type: "Date", nullable: true },
-    metadata: { type: "unknown", nullable: true }, // JSON
-    age: { type: "number", nullable: true },
-  },
-  posts: {
-    id: { type: "number", nullable: false },
-    title: { type: "string", nullable: false },
-    view_count: { type: "string", nullable: false }, // BIGINT
-    published: { type: "number", nullable: false }, // TINYINT
-    content: { type: "string", nullable: true },
-    user_id: { type: "number", nullable: false },
-  },
-  comments: {
-    id: { type: "number", nullable: false },
-    body: { type: "string", nullable: false },
-    post_id: { type: "number", nullable: false },
-  },
-};
-
-// =============================================================================
-// SQL Parsing Helpers
-// =============================================================================
-
-interface ParsedColumn {
-  name: string;
-  alias: string | null;
-  table: string | null;
-}
-
-interface ParsedQuery {
-  columns: ParsedColumn[];
-  tables: string[];
-}
-
-/**
- * Parse SELECT query to extract columns and tables
- */
-function parseSelectQuery(sql: string): ParsedQuery | null {
-  const normalized = sql.replace(/\s+/g, " ").trim();
-
-  // Match SELECT ... FROM ...
-  const selectMatch = /^SELECT\s+(.+?)\s+FROM\s+(\S+)/i.exec(normalized);
-  if (!selectMatch) return null;
-
-  const columnsPart = selectMatch[1] ?? "";
-  const tablePart = selectMatch[2] ?? "";
-
-  // Parse table name (remove alias)
-  const tableMatch = /^`?(\w+)`?/i.exec(tablePart);
-  const tableName = tableMatch?.[1] ?? "";
-
-  // Parse columns
-  const columns = parseColumns(columnsPart);
-
-  return {
-    columns,
-    tables: [tableName],
-  };
-}
-
-/**
- * Parse column list from SELECT clause
- */
-function parseColumns(columnsPart: string): ParsedColumn[] {
-  if (columnsPart.trim() === "*") {
-    return [{ name: "*", alias: null, table: null }];
-  }
-
-  const columns: ParsedColumn[] = [];
-  const parts = splitColumns(columnsPart);
-
-  for (const part of parts) {
-    const column = parseColumn(part.trim());
-    if (column) {
-      columns.push(column);
-    }
-  }
-
-  return columns;
-}
-
-/**
- * Split column list by comma (respecting parentheses)
- */
-function splitColumns(columnsPart: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let depth = 0;
-
-  for (const char of columnsPart) {
-    if (char === "(") depth++;
-    if (char === ")") depth--;
-    if (char === "," && depth === 0) {
-      result.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  if (current) result.push(current);
-
-  return result;
-}
-
-/**
- * Parse a single column expression
- */
-function parseColumn(expr: string): ParsedColumn | null {
-  // Handle AS alias
-  const asMatch = /^(.+?)\s+AS\s+`?(\w+)`?$/i.exec(expr);
-  if (asMatch) {
-    const columnExpr = asMatch[1]?.trim() ?? "";
-    const alias = asMatch[2] ?? "";
-    const baseColumn = parseColumnExpr(columnExpr);
-    return {
-      name: baseColumn.name,
-      alias,
-      table: baseColumn.table,
-    };
-  }
-
-  return parseColumnExpr(expr);
-}
-
-/**
- * Parse column expression (table.column or just column)
- */
-function parseColumnExpr(expr: string): ParsedColumn {
-  const trimmed = expr.trim().replace(/`/g, "");
-
-  // Handle table.column
-  const dotMatch = /^(\w+)\.(\w+)$/.exec(trimmed);
-  if (dotMatch) {
-    return {
-      name: dotMatch[2] ?? "",
-      alias: null,
-      table: dotMatch[1] ?? null,
-    };
-  }
-
-  return {
-    name: trimmed,
-    alias: null,
-    table: null,
-  };
-}
+/** Message IDs for rule errors */
+type MessageIds = "missingType" | "typeMismatch" | "missingColumn" | "extraColumn";
 
 // =============================================================================
 // Type Annotation Parsing
 // =============================================================================
 
 interface ParsedTypeAnnotation {
-  columns: Record<string, TypeInfo>;
+  columns: ColumnTypeRegistry;
 }
 
 /**
@@ -215,7 +71,7 @@ function parseTypeAnnotation(
  * Parse type string to extract column types
  */
 function parseTypeString(typeStr: string): ParsedTypeAnnotation {
-  const columns: Record<string, TypeInfo> = {};
+  const columns: ColumnTypeRegistry = {};
 
   // Extract content between { and }
   const match = /\{\s*([^}]+)\s*\}/.exec(typeStr);
@@ -246,7 +102,7 @@ function parseTypeString(typeStr: string): ParsedTypeAnnotation {
 /**
  * Parse a single type expression
  */
-function parseTypeExpression(typeExpr: string): TypeInfo {
+function parseTypeExpression(typeExpr: string): ColumnTypeInfo {
   const hasNull = typeExpr.endsWith(" | null");
   const hasUndefined = typeExpr.endsWith(" | undefined");
   const nullable = hasNull || hasUndefined;
@@ -292,26 +148,9 @@ function extractEnumValues(typeExpr: string): string[] {
 // =============================================================================
 
 /**
- * Generate expected type info for a column
- */
-function getExpectedType(columnName: string, tableName: string): TypeInfo | null {
-  const table = MOCK_SCHEMA[tableName];
-  if (!table) return null;
-
-  const column = table[columnName];
-  if (!column) return null;
-
-  return {
-    type: column.type,
-    nullable: column.nullable,
-    ...(column.enumValues && { enumValues: column.enumValues }),
-  };
-}
-
-/**
  * Format type info as string for error messages
  */
-function formatTypeString(typeInfo: TypeInfo): string {
+function formatTypeString(typeInfo: ColumnTypeInfo): string {
   let typeStr: string;
 
   if (typeInfo.type === "enum" && typeInfo.enumValues) {
@@ -321,7 +160,7 @@ function formatTypeString(typeInfo: TypeInfo): string {
   }
 
   if (typeInfo.nullable) {
-    const nullType = (typeInfo as TypeInfo & { hasUndefined?: boolean }).hasUndefined
+    const nullType = (typeInfo as ColumnTypeInfo & { hasUndefined?: boolean }).hasUndefined
       ? "undefined"
       : "null";
     typeStr = `${typeStr} | ${nullType}`;
@@ -333,7 +172,7 @@ function formatTypeString(typeInfo: TypeInfo): string {
 /**
  * Generate full type annotation string
  */
-function generateTypeAnnotation(columns: { name: string; typeInfo: TypeInfo }[]): string {
+function generateTypeAnnotation(columns: { name: string; typeInfo: ColumnTypeInfo }[]): string {
   const props = columns.map(({ name, typeInfo }) => {
     const typeStr = formatTypeString(typeInfo);
     return `${name}: ${typeStr}`;
@@ -349,9 +188,9 @@ function generateTypeAnnotation(columns: { name: string; typeInfo: TypeInfo }[])
 /**
  * Create the check-sql ESLint rule
  */
-export const checkSqlRule = ESLintUtils.RuleCreator(
-  (name) => `https://github.com/example/eslint-plugin-sql-typing/docs/rules/${name}`,
-)({
+export const checkSql = ESLintUtils.RuleCreator(
+  (name) => `https://github.com/ren-yamanashi/eslint-plugin-sql-typing/docs/rules/${name}`,
+)<Options, MessageIds>({
   name: "check-sql",
   meta: {
     type: "problem",
@@ -359,7 +198,26 @@ export const checkSqlRule = ESLintUtils.RuleCreator(
       description: "Ensure mysql2 queries have correct TypeScript type annotations",
     },
     fixable: "code",
-    schema: [],
+    schema: [
+      {
+        type: "object",
+        properties: {
+          database: {
+            type: "object",
+            properties: {
+              host: { type: "string" },
+              port: { type: "number" },
+              user: { type: "string" },
+              password: { type: "string" },
+              database: { type: "string" },
+            },
+            required: ["host", "user", "password", "database"],
+            additionalProperties: false,
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       missingType: "Missing type annotation for SQL query: {{ sql }}",
       typeMismatch:
@@ -368,9 +226,16 @@ export const checkSqlRule = ESLintUtils.RuleCreator(
       extraColumn: "Extra column '{{ column }}' in type annotation not in query",
     },
   },
-  defaultOptions: [] as Options,
+  defaultOptions: [{}],
   create(context) {
     const sourceCode = context.sourceCode.getText();
+    const options = context.options[0] ?? {};
+    const databaseConfig = options.database;
+
+    // Skip if no database config provided
+    if (!databaseConfig) {
+      return {};
+    }
 
     return {
       CallExpression(node) {
@@ -381,36 +246,17 @@ export const checkSqlRule = ESLintUtils.RuleCreator(
         const sql = extractSql(node);
         if (!sql) return;
 
-        // Parse the SQL query
-        const parsed = parseSelectQuery(sql);
-        if (!parsed) return;
+        // Get inferred types from database (memoized)
+        const inferredTypes = getInferredTypes(sql, databaseConfig);
+        if (!inferredTypes) return;
 
-        // Get the table name
-        const tableName = parsed.tables[0];
-        if (!tableName) return;
-
-        // Handle SELECT *
-        let queryColumns = parsed.columns;
-        if (queryColumns.length === 1 && queryColumns[0]?.name === "*") {
-          const table = MOCK_SCHEMA[tableName];
-          if (!table) return;
-          queryColumns = Object.keys(table).map((name) => ({
-            name,
-            alias: null,
-            table: null,
-          }));
-        }
-
-        // Get expected types for each column
-        const expectedColumns: { name: string; typeInfo: TypeInfo }[] = [];
-        for (const col of queryColumns) {
-          const columnName = col.alias ?? col.name;
-          const originalName = col.name;
-          const typeInfo = getExpectedType(originalName, tableName);
-          if (typeInfo) {
-            expectedColumns.push({ name: columnName, typeInfo });
-          }
-        }
+        // Convert to expected columns format
+        const expectedColumns: { name: string; typeInfo: ColumnTypeInfo }[] = Object.entries(
+          inferredTypes,
+        ).map(([name, typeInfo]) => ({
+          name,
+          typeInfo: typeInfo,
+        }));
 
         // Get existing type annotation
         const typeArgs = (
@@ -594,12 +440,12 @@ function extractSql(node: TSESTree.CallExpression): string | null {
 /**
  * Check if two types match
  */
-function typesMatch(expected: TypeInfo, actual: TypeInfo): boolean {
+function typesMatch(expected: ColumnTypeInfo, actual: ColumnTypeInfo): boolean {
   // Check nullable
   if (expected.nullable !== actual.nullable) return false;
 
   // Check for undefined vs null (MySQL always uses null, never undefined)
-  const actualHasUndefined = (actual as TypeInfo & { hasUndefined?: boolean }).hasUndefined;
+  const actualHasUndefined = (actual as ColumnTypeInfo & { hasUndefined?: boolean }).hasUndefined;
   if (expected.nullable && actualHasUndefined) {
     // Using undefined instead of null is incorrect
     return false;
