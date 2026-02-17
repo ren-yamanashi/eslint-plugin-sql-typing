@@ -1,4 +1,5 @@
-import mysql from "mysql2/promise";
+import type { FieldInfo, Pool, PoolConnection } from "mariadb";
+import mariadb from "mariadb";
 import parser from "node-sql-parser";
 
 import type { ColumnMeta, QueryMeta } from "../../types/meta.i";
@@ -32,6 +33,7 @@ interface SqlSelectAst {
 
 /** MySQL type codes */
 const TYPE_CODE = {
+  DECIMAL: 0,
   TINYINT: 1,
   SMALLINT: 2,
   INT: 3,
@@ -45,7 +47,7 @@ const TYPE_CODE = {
   DATETIME: 12,
   YEAR: 13,
   JSON: 245,
-  DECIMAL: 246,
+  NEWDECIMAL: 246,
   ENUM: 247,
   BLOB: 252,
   VARCHAR: 253,
@@ -54,6 +56,7 @@ const TYPE_CODE = {
 
 /** Map of type codes to type names */
 const TYPE_MAP: Record<number, string> = {
+  [TYPE_CODE.DECIMAL]: "DECIMAL",
   [TYPE_CODE.TINYINT]: "TINYINT",
   [TYPE_CODE.SMALLINT]: "SMALLINT",
   [TYPE_CODE.INT]: "INT",
@@ -67,14 +70,14 @@ const TYPE_MAP: Record<number, string> = {
   [TYPE_CODE.DATETIME]: "DATETIME",
   [TYPE_CODE.YEAR]: "YEAR",
   [TYPE_CODE.JSON]: "JSON",
-  [TYPE_CODE.DECIMAL]: "DECIMAL",
+  [TYPE_CODE.NEWDECIMAL]: "DECIMAL",
   [TYPE_CODE.ENUM]: "ENUM",
   [TYPE_CODE.BLOB]: "BLOB",
   [TYPE_CODE.VARCHAR]: "VARCHAR",
   [TYPE_CODE.CHAR]: "CHAR",
 };
 
-/** NOT_NULL flag in MySQL field flags */
+/** NOT_NULL flag in MySQL/MariaDB field flags */
 const NOT_NULL_FLAG = 0x01;
 
 /** Binary charset number (used to distinguish BLOB from TEXT) */
@@ -109,10 +112,19 @@ interface ParsedColumnInfo {
 }
 
 /**
- * MySQL database adapter using prepared statements to fetch query metadata
+ * Extended Prepare interface with columns method (not in type definitions but exists in runtime)
+ */
+interface PrepareWithColumns {
+  id: number;
+  close(): void;
+  columns(): FieldInfo[];
+}
+
+/**
+ * MySQL/MariaDB database adapter using prepared statements to fetch query metadata
  */
 export class MySQLAdapter implements IDatabaseAdapter {
-  private pool: mysql.Pool | null = null;
+  private pool: Pool | null = null;
   private config: DatabaseConfig;
   private parser: InstanceType<typeof Parser>;
 
@@ -125,23 +137,21 @@ export class MySQLAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Establish connection pool to MySQL database
+   * Establish connection pool to MySQL/MariaDB database
    */
   async connect(): Promise<void> {
-    this.pool = mysql.createPool({
+    this.pool = mariadb.createPool({
       host: this.config.host,
       port: this.config.port ?? 3306,
       user: this.config.user,
       password: this.config.password,
       database: this.config.database,
-      waitForConnections: true,
       connectionLimit: 5,
-      queueLimit: 0,
     });
 
     // Test connection
     const connection = await this.pool.getConnection();
-    connection.release();
+    await connection.release();
   }
 
   /**
@@ -168,19 +178,18 @@ export class MySQLAdapter implements IDatabaseAdapter {
       const parsedColumns = this.parseColumnsFromSql(sql);
 
       // Use PREPARE to get metadata without executing
-      const prepared = await connection.prepare(sql);
-      const fields = (prepared as unknown as { statement: { columns: mysql.FieldPacket[] } })
-        .statement.columns;
+      const prepared = (await connection.prepare(sql)) as unknown as PrepareWithColumns;
+      const fields = prepared.columns();
 
       const columns: ColumnMeta[] = await Promise.all(
         fields.map((field, index) => this.mapColumn(field, connection, parsedColumns[index])),
       );
 
-      await prepared.close();
+      prepared.close();
 
       return { columns };
     } finally {
-      connection.release();
+      await connection.release();
     }
   }
 
@@ -272,18 +281,19 @@ export class MySQLAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Map MySQL field to ColumnMetadata
+   * Map mariadb FieldInfo to ColumnMetadata
    */
   private async mapColumn(
-    field: mysql.FieldPacket,
-    connection: mysql.PoolConnection,
+    field: FieldInfo,
+    connection: PoolConnection,
     parsedInfo?: ParsedColumnInfo,
   ): Promise<ColumnMeta> {
-    const typeCode = field.columnType ?? 0;
+    // mariadb returns TypeNumbers enum, convert to number for comparison
+    const typeCode = field.columnType as number;
     const typeName = this.getTypeName(typeCode);
 
     // Determine if nullable
-    const flags = Number(field.flags ?? 0);
+    const flags = field.flags ?? 0;
     let nullable = (flags & NOT_NULL_FLAG) === 0;
 
     // COALESCE/IFNULL makes result non-nullable
@@ -291,27 +301,32 @@ export class MySQLAdapter implements IDatabaseAdapter {
       nullable = false;
     }
 
+    // Get field names using methods
+    const name = field.orgName();
+    const fieldName = field.name();
+    const table = field.table();
+
     // Distinguish TEXT from BLOB using charset
     // BLOB uses binary charset (63), TEXT uses non-binary charset
     let finalTypeName = typeName;
     if (typeCode === TYPE_CODE.BLOB) {
-      const charset = (field as unknown as { characterSet?: number }).characterSet ?? 0;
+      const charset = field.collation?.index ?? 0;
       if (charset !== BINARY_CHARSET) {
         finalTypeName = "TEXT";
       }
     }
 
     const metadata: ColumnMeta = {
-      name: field.orgName || field.name,
-      table: field.table || null,
+      name: name || fieldName,
+      table: table || null,
       type: finalTypeName,
       typeCode,
       nullable,
     };
 
     // Handle alias
-    if (field.name !== field.orgName && field.orgName) {
-      metadata.alias = field.name;
+    if (fieldName !== name && name) {
+      metadata.alias = fieldName;
     } else if (parsedInfo?.alias) {
       metadata.alias = parsedInfo.alias;
     }
@@ -325,10 +340,10 @@ export class MySQLAdapter implements IDatabaseAdapter {
       }
     }
 
-    // mysql2 の prepare statement は ENUM を CHAR (254) として返すため、
+    // mariadb の prepare statement は ENUM を CHAR (254) として返すため、
     // INFORMATION_SCHEMA を確認して実際の型を取得する
-    if (typeCode === TYPE_CODE.CHAR && field.table && field.orgName) {
-      const enumValues = await this.getEnumValues(field.table, field.orgName, connection);
+    if (typeCode === TYPE_CODE.CHAR && table && name) {
+      const enumValues = await this.getEnumValues(table, name, connection);
       if (enumValues.length > 0) {
         metadata.type = "ENUM";
         metadata.typeCode = TYPE_CODE.ENUM;
@@ -337,8 +352,8 @@ export class MySQLAdapter implements IDatabaseAdapter {
     }
 
     // Fetch ENUM values (typeCode が直接 ENUM の場合)
-    if (typeCode === TYPE_CODE.ENUM && field.table && field.orgName && !metadata.enumValues) {
-      metadata.enumValues = await this.getEnumValues(field.table, field.orgName, connection);
+    if (typeCode === TYPE_CODE.ENUM && table && name && !metadata.enumValues) {
+      metadata.enumValues = await this.getEnumValues(table, name, connection);
     }
 
     return metadata;
@@ -350,9 +365,9 @@ export class MySQLAdapter implements IDatabaseAdapter {
   private async getEnumValues(
     table: string,
     column: string,
-    connection: mysql.PoolConnection,
+    connection: PoolConnection,
   ): Promise<string[]> {
-    const [rows] = await connection.query<mysql.RowDataPacket[]>(
+    const rows = await connection.query<{ COLUMN_TYPE: string }[]>(
       `SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
       [this.config.database, table, column],
@@ -361,7 +376,7 @@ export class MySQLAdapter implements IDatabaseAdapter {
     const row = rows[0];
     if (!row) return [];
 
-    const columnType = row["COLUMN_TYPE"] as string;
+    const columnType = row.COLUMN_TYPE;
     const match = /enum\((.+)\)/i.exec(columnType);
     if (!match?.[1]) return [];
 
