@@ -11,12 +11,12 @@
     "db:setup": "docker compose exec mysql mysql -uroot -ptest test_db < schema.sql"
   },
   "dependencies": {
-    "mysql2": "^3.11.0"
+    "mysql2": "^3.17.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "@typescript-eslint/parser": "^8.55.0",
-    "eslint": "^9.0.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "eslint": "^9.39.3",
     "eslint-plugin-sql-typing": "workspace:*",
     "typescript": "^5.0.0"
   }
